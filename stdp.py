@@ -1,8 +1,8 @@
 import matplotlib.pyplot as plt
 import numpy as np
-from module.neuron import LIF
-from module.synapse import STSP_thodyks, StaticSynapse, Guetig_STDP
-# from module.guetig_STDP import guetig_STDP
+from neurons.lif import LIF
+from synapses.static_synapse import StaticSynapse
+from synapses.stdp_guetig import Guetig_STDP
 
 
 class NeuralNetwork:
