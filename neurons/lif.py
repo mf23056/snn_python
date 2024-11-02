@@ -65,7 +65,6 @@ if __name__ == "__main__":
     # ランダムな入力電流を生成
     np.random.seed(42)  # 再現性のために乱数シードを設定
     input_current = np.random.normal(0.0, 0.0, len(time))  # 平均5.0nA、標準偏差2.0nAのノイズ
-    print(input_current)
 
     # LIFニューロンのインスタンスを作成
     lif_neuron = LIF(dt=dt)
@@ -96,6 +95,6 @@ if __name__ == "__main__":
     axs[1].legend(loc="upper right")
 
     plt.tight_layout()
-    plt.show()
+    plt.savefig("lif_neuron.png", dpi=300)
         
     
