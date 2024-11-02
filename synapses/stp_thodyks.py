@@ -125,4 +125,4 @@ if __name__ == "__main__":
     axs[2].grid()
 
     plt.tight_layout()
-    plt.show()
+    plt.savefig("thodyks_stp", dpi=300)

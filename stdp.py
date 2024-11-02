@@ -18,6 +18,8 @@ class NeuralNetwork:
         self.syn_ratio_log = []
         
         
+        
+        
     def create_neurons(self, exc_n, inh_n):
         n_list = []
         for m in range(exc_n):
@@ -211,8 +213,6 @@ s_bin_log = nn.self_org(T)
 '''
 plot
 '''
-print('シナプス総結合数', len(nn.synapses))
-print('シナプス結合割合', len(nn.synapses)/(N_E+N_I)**2)
 # 結合タイプごとの結合数をカウント
 EE_synapses = [syn for syn in nn.synapses if syn['pre_n'] < N_E and syn['post_n'] < N_E]
 EI_synapses = [syn for syn in nn.synapses if syn['pre_n'] < N_E and syn['post_n'] >= N_E]
@@ -232,10 +232,13 @@ IE_prob = len(IE_synapses) / possible_IE
 II_prob = len(II_synapses) / possible_II
 
 # 結果を出力
-print(f"EE 結合確率: {EE_prob:.4f}")
-print(f"EI 結合確率: {EI_prob:.4f}")
-print(f"IE 結合確率: {IE_prob:.4f}")
-print(f"II 結合確率: {II_prob:.4f}")
+with open("output.txt", "w") as doc:
+    print("シナプス総結合数", len(nn.synapses), file=doc)
+    print('シナプス結合割合', len(nn.synapses)/(N_E+N_I)**2, file=doc)
+    print(f"EE 結合確率: {EE_prob:.4f}", file=doc)
+    print(f"EI 結合確率: {EI_prob:.4f}", file=doc)
+    print(f"IE 結合確率: {IE_prob:.4f}", file=doc)
+    print(f"II 結合確率: {II_prob:.4f}", file=doc)
   
     
 plt.figure(figsize=(12, 10))
@@ -255,7 +258,7 @@ plt.xlabel('Time (ms)')
 plt.ylabel('Neuron IDs')
 plt.title('Spike Raster Plot (Color-Coded by Neuron Type)')
 plt.legend(loc='upper right')
-plt.show()
+plt.savefig("spikes_raster.png", dpi=300)
 
 # Time resolution for blocks (10 ms)
 block_size = 10  # 10msごとに分割
@@ -278,7 +281,7 @@ plt.colorbar(label='Spike Frequency')
 plt.xlabel('Time Blocks (10 ms each)')
 plt.ylabel('Neuron ID')
 plt.title('Spike Frequency per 10ms Block')
-plt.show()
+plt.savefig("spike_frequency.png", dpi=300)
 
 # 1. 全シナプスの重みの平均の変化をプロット
 avg_weights = np.mean(nn.weight_history, axis=1)
@@ -288,7 +291,7 @@ plt.title("Average Weight Over Time")
 plt.xlabel("Time Step")
 plt.ylabel("Average Synaptic Weight")
 plt.grid(True)
-plt.show()
+plt.savefig("ave_weight.png", dpi=300)
 
 # 2. 各シナプスの重みの変化をヒートマップで表示
 # plt.figure(figsize=(10, 6))
@@ -320,7 +323,7 @@ plt.ylabel('Input Sum')
 plt.title('Excitatory and Inhibitory Input Over Time')
 plt.legend()
 plt.grid(True)
-plt.show()
+plt.savefig("E_I_input.png", dpi=300)
 
 # Plot E/I ratio over time
 plt.figure(figsize=(12, 6))
@@ -329,7 +332,7 @@ plt.xlabel('Time (ms)')
 plt.ylabel('E/I Ratio')
 plt.title('Excitatory/Inhibitory Ratio Over Time')
 plt.grid(True)
-plt.show()
+plt.savefig("E_I_ratio.png", dpi=300)
 
 # Plot relative weights over time
 ee_relative_weights, ei_relative_weights, ie_relative_weights, ii_relative_weights = zip(*nn.syn_ratio_log)
@@ -345,7 +348,7 @@ plt.ylabel('Relative Weight')
 plt.title('Relative Weights of Synapse Types Over Time')
 plt.legend()
 plt.grid(True)
-plt.show()
+plt.savefig("w_types.png", dpi=300)
 
 
 

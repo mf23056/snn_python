@@ -58,4 +58,4 @@ if __name__ == "__main__":
     plt.axhline(0, color='red', linestyle='--')  # y=0のラインを追加
     plt.grid()
     plt.legend()
-    plt.show()
+    plt.savefig("stdp_guetig.png", dpi=300)
