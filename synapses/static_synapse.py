@@ -22,7 +22,6 @@ class StaticSynapse:
         # postsynaptic currentの計算
         I = self.before_I + self.dt * (-self.before_I / self.tau_syn) + W * bin_spike
 
-        
         # 内部状態の更新
         self.before_I = I
         
@@ -71,4 +70,5 @@ if __name__ == "__main__":
     plt.grid(True)
 
     plt.tight_layout()
-    plt.show()
+    plt.savefig("static.png")
+
