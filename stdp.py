@@ -195,10 +195,10 @@ class NeuralNetwork:
 '''
 parameter
 '''
-N_E = 100
-N_I = 25
+N_E = 1000
+N_I = 250
 dt = 0.01
-SIM_TIME = 200 # ms
+SIM_TIME = 1000 # ms
 T = int(SIM_TIME/dt) 
     
     
