@@ -9,7 +9,7 @@ import torch
 class NeuralNetwork:
     def __init__(self, n_e, n_i, seed=0, device='cuda'):
         np.random.seed(seed)
-        self.device = torch.device(device if torch.cuda.is_available() else 'cpu')
+        self.device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
         self.neurons = self.create_neurons(n_e, n_i)
         self.synapses = self.create_synapse()
         self.weight_history = []
@@ -27,7 +27,9 @@ class NeuralNetwork:
                           'pos':np.random.uniform(-1,1,3), 
                           'state': torch.zeros(1, device=self.device),  # GPU対応
                           'I_sum': torch.tensor(5000, device=self.device),  # GPU対応
-                          'last_spike': None}
+                          'last_spike': None,
+                          'model': LIF()
+                          }
             n_list.append(synap_dict)
             
         for n in range(inh_n):
@@ -36,9 +38,11 @@ class NeuralNetwork:
                           'pos':np.random.uniform(-1,1,3), 
                           'state': torch.zeros(1, device=self.device),  # GPU対応
                           'I_sum': torch.tensor(5000, device=self.device),  # GPU対応
-                          'last_spike': None}
+                          'last_spike': None,
+                          'model': LIF()
+                          }
             n_list.append(synap_dict)
-            
+        print(f"Neuron list created with {len(n_list)} neurons.")    
         return n_list
         
               
@@ -80,7 +84,6 @@ class NeuralNetwork:
                     
         return s_list
     
-    
     def culc_spikes(self, t):
         spikes = []
         for n in self.neurons:
@@ -90,7 +93,7 @@ class NeuralNetwork:
             spikes.append(spike)
 
         return spikes
-    
+ 
     
     def culc_I_post(self):
         # Reset I_sum for all neurons
@@ -105,8 +108,10 @@ class NeuralNetwork:
             pre_n, post_n = syn['pre_n'], syn['post_n']
             I = syn['model'](self.neurons[pre_n]['model'].state,
                         syn['weight'])
-            self.neurons[post_n]['I_sum'] += I
-            
+           
+            # I_sumをfloat型に変換して加算
+            self.neurons[post_n]['I_sum'] = self.neurons[post_n]['I_sum'].float() + I
+
             # Synapse type (excitatory or inhibitory)
             pre_prop = self.neurons[pre_n]['prop']
             if pre_prop == 'exc':
@@ -115,9 +120,9 @@ class NeuralNetwork:
                 inh_input_sum += I
         
         # Log the sum of excitatory and inhibitory inputs
-        self.exc_input_log.append(exc_input_sum.item())  # item()でCPUに戻す
-        self.inh_input_log.append(inh_input_sum.item())  # item()でCPUに戻す
-        self.ei_deffe_log.append((exc_input_sum + inh_input_sum).item())
+        self.exc_input_log.append(exc_input_sum)  # item()でCPUに戻す
+        self.inh_input_log.append(inh_input_sum)  # item()でCPUに戻す
+        self.ei_deffe_log.append((exc_input_sum + inh_input_sum))
         
         # Calculate and log the E/I ratio
         if inh_input_sum != 0:
@@ -146,29 +151,29 @@ class NeuralNetwork:
         # 相対値を記録
         
         
-        def change_weight(self):
-            for syn in self.synapses:
-                post_spike = self.neurons[syn['post_n']]['model'].state
-                pre_prop = self.neurons[syn['pre_n']]['prop']
+    def change_weight(self):
+        for syn in self.synapses:
+            post_spike = self.neurons[syn['post_n']]['model'].state
+            pre_prop = self.neurons[syn['pre_n']]['prop']
                 
             # ポストニューロンが発火したときのみ更新
-                if post_spike:
-                    # スパイクタイミング差を計算（事後 - 事前）
-                    pre_time = self.neurons[syn['pre_n']]['last_spike']
-                    post_time = self.neurons[syn['post_n']]['last_spike']
+            if post_spike:
+                # スパイクタイミング差を計算（事後 - 事前）
+                pre_time = self.neurons[syn['pre_n']]['last_spike']
+                post_time = self.neurons[syn['post_n']]['last_spike']
                     
-                    if pre_time is not None and post_time is not None:
-                        delta_t = pre_time - post_time
+                if pre_time is not None and post_time is not None:
+                    delta_t = pre_time - post_time
                         
-                        # Guetig STDPモデルに基づく重み更新
-                        weight_update = syn['model_2'](delta_t)
-                        if pre_prop == 'exc':
-                            syn['weight'] += weight_update
-                        elif pre_prop == 'inh':
-                            syn['weight'] -= weight_update
+                    # Guetig STDPモデルに基づく重み更新
+                    weight_update = syn['model_2'](delta_t)
+                    if pre_prop == 'exc':
+                        syn['weight'] += weight_update
+                    elif pre_prop == 'inh':
+                        syn['weight'] -= weight_update
                             
-                        # 重みの履歴を記録
-                        self.weight_history.append([syn['weight'] for syn in self.synapses])
+                    # 重みの履歴を記録
+                    self.weight_history.append([syn['weight'] for syn in self.synapses])
     
             
     
@@ -190,10 +195,10 @@ class NeuralNetwork:
 '''
 parameter
 '''
-N_E = 5000
-N_I = 1250
+N_E = 1000
+N_I = 250
 dt = 0.01
-SIM_TIME = 100 # ms
+SIM_TIME = 2000 # ms
 T = int(SIM_TIME/dt) 
     
     
