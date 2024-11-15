@@ -1,15 +1,16 @@
-import matplotlib.pyplot as plt
+import torch
 import numpy as np
+import matplotlib.pyplot as plt
 from neurons.lif import LIF
 from synapses.static_synapse import StaticSynapse
 from synapses.stdp_guetig import Guetig_STDP
-import torch
+
 
 
 class NeuralNetwork:
     def __init__(self, n_e, n_i, seed=0, device='cuda'):
         np.random.seed(seed)
-        self.device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
+        self.device = torch.device(device) if torch.cuda.is_available() else torch.device('cpu')
         self.neurons = self.create_neurons(n_e, n_i)
         self.synapses = self.create_synapse()
         self.weight_history = []
@@ -22,175 +23,123 @@ class NeuralNetwork:
     def create_neurons(self, exc_n, inh_n):
         n_list = []
         for m in range(exc_n):
-            synap_dict = {'id':m,
-                          'prop': 'exc', 
-                          'pos':np.random.uniform(-1,1,3), 
-                          'state': torch.zeros(1, device=self.device),  # GPU対応
-                          'I_sum': torch.tensor(5000, device=self.device),  # GPU対応
+            synap_dict = {'id': m,
+                          'prop': 'exc',
+                          'pos': torch.tensor(np.random.uniform(-1, 1, 3), device=self.device),
+                          'state': torch.zeros(1, device=self.device),
+                          'I_sum': torch.tensor(5000, device=self.device),
                           'last_spike': None,
-                          'model': LIF()
-                          }
+                          'model': LIF().to(self.device)}
             n_list.append(synap_dict)
-            
+
         for n in range(inh_n):
-            synap_dict = {'id':exc_n+n,
-                          'prop': 'inh', 
-                          'pos':np.random.uniform(-1,1,3), 
-                          'state': torch.zeros(1, device=self.device),  # GPU対応
-                          'I_sum': torch.tensor(5000, device=self.device),  # GPU対応
+            synap_dict = {'id': exc_n + n,
+                          'prop': 'inh',
+                          'pos': torch.tensor(np.random.uniform(-1, 1, 3), device=self.device),
+                          'state': torch.zeros(1, device=self.device),
+                          'I_sum': torch.tensor(5000, device=self.device),
                           'last_spike': None,
-                          'model': LIF()
-                          }
+                          'model': LIF().to(self.device)}
             n_list.append(synap_dict)
-        print(f"Neuron list created with {len(n_list)} neurons.")    
         return n_list
-        
-              
-    def create_synapse(self, C={"EE":0.16,"EI":0.25,"IE":0.38,"II":0.1}):
+
+    def create_synapse(self, C={"EE": 0.16, "EI": 0.25, "IE": 0.38, "II": 0.1}):
         s_list = []
         self.C = C
-        self.Lambda =  {
-            'EE':1/(C['EE']*np.sqrt(np.pi)),
-            'EI':1/(C['EI']*np.sqrt(np.pi)),
-            'IE':1/(C['IE']*np.sqrt(np.pi)),
-            'II':1/(C['II']*np.sqrt(np.pi))
+        self.Lambda = {
+            'EE': 1 / (C['EE'] * np.sqrt(np.pi)),
+            'EI': 1 / (C['EI'] * np.sqrt(np.pi)),
+            'IE': 1 / (C['IE'] * np.sqrt(np.pi)),
+            'II': 1 / (C['II'] * np.sqrt(np.pi))
         }
-            
-        
+
         for pre in self.neurons:
             for post in self.neurons:
-                # 距離の計算
-                dist = np.sqrt(np.sum((pre['pos'] - post['pos']) ** 2))
-                if pre['prop'] == 'exc' and post['prop'] == 'exc': 
+                dist = torch.sqrt(torch.sum((pre['pos'] - post['pos']) ** 2)).item()
+                if pre['prop'] == 'exc' and post['prop'] == 'exc':
                     form = 'EE'
-                    weight = np.random.uniform(0,1)
-                elif pre['prop'] == 'exc' and post['prop'] == 'inh': 
+                    weight = torch.rand(1, device=self.device)
+                elif pre['prop'] == 'exc' and post['prop'] == 'inh':
                     form = 'EI'
-                    weight = np.random.uniform(0,1)
-                elif pre['prop'] == 'inh' and post['prop'] == 'exc': 
+                    weight = torch.rand(1, device=self.device)
+                elif pre['prop'] == 'inh' and post['prop'] == 'exc':
                     form = 'IE'
-                    weight = np.random.uniform(-1,0)
-                elif pre['prop'] == 'inh' and post['prop'] == 'inh': 
+                    weight = -torch.rand(1, device=self.device)
+                elif pre['prop'] == 'inh' and post['prop'] == 'inh':
                     form = 'II'
-                    weight = np.random.uniform(-1, 0)
-                
-                if np.random.rand() < self.C[form] * np.exp(-dist / self.Lambda[form] ** 2):
-                    syna_dict = {'pre_n': pre['id'],
-                                 'post_n': post['id'], 
-                                 'weight': weight, 
-                                 'model': StaticSynapse(), 
-                                 'model_2': Guetig_STDP()}                   
-                    s_list.append(syna_dict)          
-                    
-        return s_list
-    
-    def culc_spikes(self, t):
-        spikes = []
-        for n in self.neurons:
-            spike = n['model'](n['I_sum'].cpu().numpy())  # GPU -> CPU転送
-            if spike:
-                n['last_spike'] = t  # スパイクした場合に現在の時刻を記録
-            spikes.append(spike)
+                    weight = -torch.rand(1, device=self.device)
 
+                if torch.rand(1) < self.C[form] * torch.exp(-dist / (self.Lambda[form] ** 2)):
+                    syna_dict = {'pre_n': pre['id'],
+                                 'post_n': post['id'],
+                                 'weight': weight,
+                                 'model': StaticSynapse().to(self.device),
+                                 'model_2': Guetig_STDP().to(self.device)}
+                    s_list.append(syna_dict)
+
+        return s_list
+
+    def culc_spikes(self, t):
+        spikes = torch.zeros(len(self.neurons), device=self.device, dtype=torch.bool)
+        for i, n in enumerate(self.neurons):
+            spike = n['model'](n['I_sum'])
+            if spike:
+                n['last_spike'] = t
+            spikes[i] = spike
         return spikes
- 
-    
+
     def culc_I_post(self):
-        # Reset I_sum for all neurons
         for n in self.neurons:
-            n['I_sum'] = torch.tensor(0, device=self.device)
-            
-        exc_input_sum = 0
-        inh_input_sum = 0
-        
-        # 各シナプス後電流を計算 => neurons['I_sum']に合算
+            n['I_sum'].zero_()
+
+        exc_input_sum = torch.tensor(0.0, device=self.device)
+        inh_input_sum = torch.tensor(0.0, device=self.device)
+
         for syn in self.synapses:
             pre_n, post_n = syn['pre_n'], syn['post_n']
-            I = syn['model'](self.neurons[pre_n]['model'].state,
-                        syn['weight'])
-           
-            # I_sumをfloat型に変換して加算
-            self.neurons[post_n]['I_sum'] = self.neurons[post_n]['I_sum'].float() + I
-
-            # Synapse type (excitatory or inhibitory)
+            I = syn['model'](self.neurons[pre_n]['model'].state, syn['weight'])
+            self.neurons[post_n]['I_sum'] += I
             pre_prop = self.neurons[pre_n]['prop']
             if pre_prop == 'exc':
                 exc_input_sum += I
-            elif pre_prop == 'inh':
+            else:
                 inh_input_sum += I
-        
-        # Log the sum of excitatory and inhibitory inputs
-        self.exc_input_log.append(exc_input_sum)  # item()でCPUに戻す
-        self.inh_input_log.append(inh_input_sum)  # item()でCPUに戻す
-        self.ei_deffe_log.append((exc_input_sum + inh_input_sum))
-        
-        # Calculate and log the E/I ratio
-        if inh_input_sum != 0:
-            ei_ratio = -(exc_input_sum / inh_input_sum)
-        else:
-            ei_ratio = np.inf  # Handle division by zero
-        
-        self.ei_ratio_log.append(ei_ratio)
-        
-        # 追加: 各シナプスタイプの重みの合計を計算
-        weight_sum = sum(syn['weight'] for syn in self.synapses)  # 全シナプスの重みの合計
-        ee_weight_sum = sum(syn['weight'] for syn in self.synapses if self.neurons[syn['pre_n']]['prop'] == 'exc' and self.neurons[syn['post_n']]['prop'] == 'exc')
-        ei_weight_sum = sum(syn['weight'] for syn in self.synapses if self.neurons[syn['pre_n']]['prop'] == 'exc' and self.neurons[syn['post_n']]['prop'] == 'inh')
-        ie_weight_sum = sum(syn['weight'] for syn in self.synapses if self.neurons[syn['pre_n']]['prop'] == 'inh' and self.neurons[syn['post_n']]['prop'] == 'exc')
-        ii_weight_sum = sum(syn['weight'] for syn in self.synapses if self.neurons[syn['pre_n']]['prop'] == 'inh' and self.neurons[syn['post_n']]['prop'] == 'inh')
-        
-        # 各シナプスタイプの重みの相対値を計算
-        if weight_sum != 0:
-            ee_relative_weight = ee_weight_sum / weight_sum
-            ei_relative_weight = ei_weight_sum / weight_sum
-            ie_relative_weight = -(ie_weight_sum / weight_sum)
-            ii_relative_weight = -(ii_weight_sum / weight_sum)
-        else:
-            ee_relative_weight = ei_relative_weight = ie_relative_weight = ii_relative_weight = 0  # Handle division by zero
 
-        # 相対値を記録
-        
-        
+        self.exc_input_log.append(exc_input_sum.item())
+        self.inh_input_log.append(inh_input_sum.item())
+        self.ei_deffe_log.append((exc_input_sum + inh_input_sum).item())
+
+        if inh_input_sum != 0:
+            ei_ratio = -(exc_input_sum / inh_input_sum).item()
+        else:
+            ei_ratio = np.inf
+        self.ei_ratio_log.append(ei_ratio)
+
     def change_weight(self):
         for syn in self.synapses:
             post_spike = self.neurons[syn['post_n']]['model'].state
             pre_prop = self.neurons[syn['pre_n']]['prop']
-                
-            # ポストニューロンが発火したときのみ更新
             if post_spike:
-                # スパイクタイミング差を計算（事後 - 事前）
                 pre_time = self.neurons[syn['pre_n']]['last_spike']
                 post_time = self.neurons[syn['post_n']]['last_spike']
-                    
                 if pre_time is not None and post_time is not None:
                     delta_t = pre_time - post_time
-                        
-                    # Guetig STDPモデルに基づく重み更新
                     weight_update = syn['model_2'](delta_t)
                     if pre_prop == 'exc':
                         syn['weight'] += weight_update
-                    elif pre_prop == 'inh':
+                    else:
                         syn['weight'] -= weight_update
-                            
-                    # 重みの履歴を記録
-                    self.weight_history.append([syn['weight'] for syn in self.synapses])
-    
-            
-    
+                    self.weight_history.append([syn['weight'].item() for syn in self.synapses])
+
     def self_org(self, T):
         s_bin_log = []
-        
         for m in range(T):
             spikes = self.culc_spikes(m * dt)
             self.culc_I_post()
             self.change_weight()
-            
-            
-            s_bin_log.append(spikes)
-        
+            s_bin_log.append(spikes.cpu().numpy())
         return np.array(s_bin_log)
-    
-    
+
     
 '''
 parameter
