@@ -111,9 +111,9 @@ class SNN:
 
             self.spike_state, self.before_V, self.ref_time = self.neuron(self.sum_I_syn, self.before_V, self.ref_time)
 
-            # STDP 更新
-            delta_t = self.spike_times.unsqueeze(1) - self.spike_times.unsqueeze(0)
-            self.weights += self.stdp(delta_t)
+            # # STDP 更新
+            # delta_t = self.spike_times.unsqueeze(1) - self.spike_times.unsqueeze(0)
+            # self.weights += self.stdp(delta_t)
 
             spike_record[:, t] = self.spike_state
         return spike_record
