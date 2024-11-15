@@ -28,7 +28,7 @@ class LIF:
     def __call__(self, I_syn):
         '''
         ニューロンの状態を更新し、スパイクをチェックします。
-        param input: 現在の入力電流 [nA]
+        param I_syn: 他ニューロンからのI_postの合計値 [nA]
         Returns:
             int: スパイクが発火した場合は1、そうでなければ0
         '''
