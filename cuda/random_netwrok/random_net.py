@@ -55,7 +55,7 @@ class StaticSynapse:
 
 
 class Guetig_STDP:
-    def __init__(self, dt=0.01, A_plus=0.1, A_minus=0.1, tau_plus=20.0, tau_minus=20.0, alpha=0.95, device='cuda'):
+    def __init__(self, dt=0.01, A_plus=0.01, A_minus=10, tau_plus=20.0, tau_minus=20.0, alpha=0.95, device='cuda'):
         self.dt = dt
         self.A_plus = A_plus
         self.A_minus = A_minus
@@ -85,7 +85,6 @@ class SNN:
         self.n_total = n_exc + n_inh
         self.dt = dt
         self.device = device
-        self.C = {"EE": 0.125, "EI": 0.15, "IE": 0.14, "II": 0.09}
 
         self.neuron = LIF()
         self.synapse = StaticSynapse()
@@ -93,74 +92,24 @@ class SNN:
 
         self._initialize_neurons(n_exc, n_inh)
         self._initialize_synapses()
-        del self.positions
 
     def _initialize_neurons(self, n_exc, n_inh):
-        self.positions = torch.rand((self.n_total, 3), device=self.device)
         self.sum_I_syn = torch.zeros(self.n_total, device=self.device)
         self.before_V = torch.full((self.n_total,), -65.0, device=self.device)
         self.ref_time = torch.zeros(self.n_total, device=self.device)
         self.spike_state = torch.ones(self.n_total, device=self.device)
 
-        neuron_types = ['exc'] * n_exc + ['inh'] * n_inh
-        self.neuron_types = neuron_types
 
     def _initialize_synapses(self):
         self.before_I = torch.zeros((self.n_total, self.n_total), device=self.device)
-        distances = torch.cdist(self.positions, self.positions)
         self.weight_bias = torch.zeros((self.n_total, self.n_total), device=self.device)
-        factor = torch.zeros((self.n_total, self.n_total), device=self.device)
+        self.weight_bias[:self.n_exc, :] = 1
+        self.weight_bias[self.n_exc:, :] = -1
 
-        for i, pre_type in enumerate(self.neuron_types):
-            for j, post_type in enumerate(self.neuron_types):
-                if pre_type == 'exc' and post_type == 'exc':
-                    factor[i, j] = self.C['EE']
-                    self.weight_bias[i, j] = 1
-                elif pre_type == 'exc' and post_type == 'inh':
-                    factor[i, j] = self.C['EI']
-                    self.weight_bias[i, j] = 1
-                elif pre_type == 'inh' and post_type == 'exc':
-                    factor[i, j] = self.C['IE']
-                    self.weight_bias[i, j] = -1
-                elif pre_type == 'inh' and post_type == 'inh':
-                    factor[i, j] = self.C['II']
-                    self.weight_bias[i, j] = -1
-
-        synapse_prob = factor * torch.exp(-distances ** 2 / (1 / (factor * math.sqrt(math.pi))) ** 2)
-        random_vals = torch.rand_like(synapse_prob)
-        self.weights = (synapse_prob > random_vals).float() * self.weight_bias * random_vals
+        self.weights = torch.rand((self.n_total, self.n_total), device=self.device)
+        self.weights = self.weights * self.weight_bias
         self.weights.fill_diagonal_(0)
 
-        # シナプス接続数をカウント
-        self._count_synapses()
-
-        del distances, factor, synapse_prob, random_vals
-
-    def _count_synapses(self):
-        # 各タイプのシナプスの接続が存在する場所を数える
-        exc_to_exc = torch.sum(self.weights[:self.n_exc, :self.n_exc] != 0).item()  # E → E のシナプス接続数
-        exc_to_inh = torch.sum(self.weights[:self.n_exc, self.n_exc:] != 0).item()  # E → I のシナプス接続数
-        inh_to_exc = torch.sum(self.weights[self.n_exc:, :self.n_exc] != 0).item()  # I → E のシナプス接続数
-        inh_to_inh = torch.sum(self.weights[self.n_exc:, self.n_exc:] != 0).item()  # I → I のシナプス接続数
-
-        # 総シナプス接続数
-        total_connections = torch.sum(self.weights != 0).item()
-
-        # 仮にすべてのニューロンが結合している場合の接続数
-        total_possible_connections = self.n_total * self.n_total - self.n_total  # 自己結合を除く
-
-        # 各シナプスタイプの割合（接続数ベース）
-        exc_to_exc_ratio = exc_to_exc / total_connections
-        exc_to_inh_ratio = exc_to_inh / total_connections
-        inh_to_exc_ratio = inh_to_exc / total_connections
-        inh_to_inh_ratio = inh_to_inh / total_connections
-
-        # 結果の表示
-        print(f"総シナプス接続数: {total_connections} ({total_connections/total_possible_connections * 100:.2f}%)")
-        print(f"興奮性ニューロン → 興奮性ニューロンのシナプス接続数: {exc_to_exc} ({exc_to_exc_ratio * 100:.2f}%)")
-        print(f"興奮性ニューロン → 抑制性ニューロンのシナプス接続数: {exc_to_inh} ({exc_to_inh_ratio * 100:.2f}%)")
-        print(f"抑制性ニューロン → 興奮性ニューロンのシナプス接続数: {inh_to_exc} ({inh_to_exc_ratio * 100:.2f}%)")
-        print(f"抑制性ニューロン → 抑制性ニューロンのシナプス接続数: {inh_to_inh} ({inh_to_inh_ratio * 100:.2f}%)")
 
     def run_simulation(self, T=1000):
         before_spike_time = torch.zeros(self.n_total, device=self.device)
