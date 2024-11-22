@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 
 # Guetig_STDPクラス
 class Guetig_STDP:
-    def __init__(self, dt=0.01, A_plus=1, A_minus=1, tau_plus=20.0, tau_minus=20.0, alpha=0.95, device='cuda'):
+    def __init__(self, dt=0.01, A_plus=0.01, A_minus=0.01, tau_plus=10.0, tau_minus=20.0, alpha=0.95, device='cuda'):
         self.dt = dt
         self.A_plus = A_plus
         self.A_minus = A_minus

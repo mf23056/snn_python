@@ -55,7 +55,7 @@ class StaticSynapse:
 
 
 class Guetig_STDP:
-    def __init__(self, dt=0.01, A_plus=0.1, A_minus=0.1, tau_plus=20.0, tau_minus=20.0, alpha=0.95, device='cuda'):
+    def __init__(self, dt=0.01, A_plus=0.01, A_minus=0.01, tau_plus=5.0, tau_minus=20.0, alpha=0.95, device='cuda'):
         self.dt = dt
         self.A_plus = A_plus
         self.A_minus = A_minus
@@ -85,11 +85,12 @@ class SNN:
         self.n_total = n_exc + n_inh
         self.dt = dt
         self.device = device
-        self.C = {"EE": 0.125, "EI": 0.15, "IE": 0.14, "II": 0.09}
+        self.C = {"EE": 0.121, "EI": 0.169, "IE": 0.127, "II": 0.097}
 
         self.neuron = LIF()
         self.synapse = StaticSynapse()
         self.stdp = Guetig_STDP(device=self.device)
+        self.I_stdp = Guetig_STDP(device=self.device)
 
         self._initialize_neurons(n_exc, n_inh)
         self._initialize_synapses()
@@ -100,7 +101,9 @@ class SNN:
         self.sum_I_syn = torch.zeros(self.n_total, device=self.device)
         self.before_V = torch.full((self.n_total,), -65.0, device=self.device)
         self.ref_time = torch.zeros(self.n_total, device=self.device)
-        self.spike_state = torch.ones(self.n_total, device=self.device)
+        self.spike_state = torch.zeros(self.n_total, device=self.device)
+        self.spike_state[:self.n_inh] = 1
+        self.spike_state[:self.n_exc] = 1
 
         neuron_types = ['exc'] * n_exc + ['inh'] * n_inh
         self.neuron_types = neuron_types
